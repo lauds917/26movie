@@ -220,7 +220,11 @@ def style_rank_change(value):
     return ""
 
 
-styled_table = display_df.style.applymap(style_rank_change, subset=["순위등락"])
+try:
+    # pandas 2.1 이상에서는 applymap 대신 map을 권장(둘 다 동작하지만, 일부 버전은 applymap이 없음)
+    styled_table = display_df.style.map(style_rank_change, subset=["순위등락"])
+except AttributeError:
+    styled_table = display_df.style.applymap(style_rank_change, subset=["순위등락"])
 
 # pandas 버전에 따라 인덱스 숨기는 방식이 달라서 둘 다 시도한다.
 try:
