@@ -160,6 +160,58 @@ for col in numeric_cols:
         df[col] = pd.to_numeric(df[col], errors="coerce")
 
 # ------------------------------------------------------------
+# 5-0. 내일 박스오피스 1위 예측 (화면 맨 위에 표시)
+#    - KOBIS는 미래 데이터를 주지 않으므로, 어디까지나 "최근 이틀 관객수 증감을
+#      그대로 다음 날에도 연장한다"는 아주 단순한 추정치일 뿐 공식 예측이 아니다.
+#    - 요일 효과(금요일 급증 등), 신작 개봉, 입소문 등은 전혀 반영하지 못한다.
+# ------------------------------------------------------------
+def predict_tomorrow_top(today_df: pd.DataFrame, today_date, api_key: str):
+    """전날 대비 증감을 그대로 연장해서 내일 예상 1위를 추정한다."""
+    prev_date_str = (today_date - timedelta(days=1)).strftime("%Y%m%d")
+    prev_success, prev_result = fetch_box_office(prev_date_str, api_key)
+
+    if not prev_success:
+        return None  # 전날 데이터가 없으면 추세를 계산할 수 없음
+
+    prev_df = pd.DataFrame(prev_result)
+    if "audiCnt" not in prev_df.columns or "movieNm" not in prev_df.columns:
+        return None
+    prev_df["audiCnt"] = pd.to_numeric(prev_df["audiCnt"], errors="coerce")
+
+    # 영화명 기준으로 전날 관객수를 오늘 데이터에 붙인다(같은 영화 여러 편 상영 등은 첫 값 사용).
+    prev_lookup = prev_df.drop_duplicates("movieNm").set_index("movieNm")["audiCnt"]
+
+    merged = today_df[["movieNm", "audiCnt"]].copy()
+    merged["전날관객수"] = merged["movieNm"].map(prev_lookup)
+    # 전날 기록이 없는 신작 등은 '변화 없음(증감 0)'으로 가정한다.
+    merged["전날관객수"] = merged["전날관객수"].fillna(merged["audiCnt"])
+
+    merged["증감"] = merged["audiCnt"] - merged["전날관객수"]
+    merged["예상관객수"] = (merged["audiCnt"] + merged["증감"]).clip(lower=0)
+
+    if merged.empty:
+        return None
+
+    return merged.sort_values("예상관객수", ascending=False).iloc[0]
+
+
+prediction = predict_tomorrow_top(df, selected_date, API_KEY)
+tomorrow_date = selected_date + timedelta(days=1)
+
+st.subheader(f"🔮 내일({tomorrow_date.strftime('%m월 %d일')}) 예상 1위")
+if prediction is None:
+    st.caption("전날 데이터가 없어 추세를 계산할 수 없습니다. (예측 불가)")
+else:
+    st.markdown(f"**{prediction['movieNm']}**")
+    st.caption(
+        f"최근 관객수 증감 추세를 단순 연장한 참고용 추정치이며, "
+        f"예상 관객수는 약 {int(prediction['예상관객수']):,}명입니다. "
+        "요일 효과나 신작 개봉 등은 반영되지 않으니 실제와 다를 수 있습니다."
+    )
+
+st.divider()
+
+# ------------------------------------------------------------
 # 5-1. rankInten(전날 대비 순위 증감)을 화살표 텍스트로 바꾸기
 #      - 문서 기준: 양수 = 순위 상승, 음수 = 순위 하락, 0 = 변동 없음
 #      - 상승은 빨간 위쪽 화살표, 하락은 파란 아래쪽 화살표로 표시한다.
