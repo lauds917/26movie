@@ -160,13 +160,13 @@ for col in numeric_cols:
         df[col] = pd.to_numeric(df[col], errors="coerce")
 
 # ------------------------------------------------------------
-# 5-0. 내일 박스오피스 1위 예측 (화면 맨 위에 표시)
+# 5-0. 오늘 박스오피스 1위 예측 (화면 맨 위에 표시)
 #    - KOBIS는 미래 데이터를 주지 않으므로, 어디까지나 "최근 이틀 관객수 증감을
 #      그대로 다음 날에도 연장한다"는 아주 단순한 추정치일 뿐 공식 예측이 아니다.
 #    - 요일 효과(금요일 급증 등), 신작 개봉, 입소문 등은 전혀 반영하지 못한다.
 # ------------------------------------------------------------
 def predict_tomorrow_top(today_df: pd.DataFrame, today_date, api_key: str):
-    """전날 대비 증감을 그대로 연장해서 내일 예상 1위를 추정한다."""
+    """전날 대비 증감을 그대로 연장해서 오늘 예상 1위를 추정한다."""
     prev_date_str = (today_date - timedelta(days=1)).strftime("%Y%m%d")
     prev_success, prev_result = fetch_box_office(prev_date_str, api_key)
 
@@ -198,7 +198,7 @@ def predict_tomorrow_top(today_df: pd.DataFrame, today_date, api_key: str):
 prediction = predict_tomorrow_top(df, selected_date, API_KEY)
 tomorrow_date = selected_date + timedelta(days=1)
 
-st.subheader(f"🔮 내일({tomorrow_date.strftime('%m월 %d일')}) 예상 1위")
+st.subheader(f"🔮 오늘({tomorrow_date.strftime('%m월 %d일')}) 예상 1위")
 if prediction is None:
     st.caption("전날 데이터가 없어 추세를 계산할 수 없습니다. (예측 불가)")
 else:
